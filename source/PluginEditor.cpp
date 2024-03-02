@@ -5,7 +5,10 @@ PluginEditor::PluginEditor (PluginProcessor& p)
 {
     juce::ignoreUnused (processorRef);
 
-    addAndMakeVisible (inspectButton);
+    //addAndMakeVisible (inspectButton);
+    addAndMakeVisible (saveFileButton);
+    //addAndMakeVisible (textField);
+    
 
     // this chunk of code instantiates and opens the melatonin inspector
     inspectButton.onClick = [&] {
@@ -16,6 +19,40 @@ PluginEditor::PluginEditor (PluginProcessor& p)
         }
 
         inspector->setVisible (true);
+    };
+
+    saveFileButton.onClick = [&] {
+        std::cout << "!!! saveFileButton.onClick" << std::endl;
+
+        processorRef.cacheBufferPosWhenClicked();
+
+        juce::FileChooser fileChooser ("Save a file", {}, "*.mp3");
+
+        if (fileChooser.browseForFileToSave(true)) {
+            auto file = fileChooser.getResult();
+                // std::cout << "!!! fileChooser.getResult()" << std::endl;
+
+                // if (file.exists())
+                // {
+                    std::cout << "!!! WriteToMP3" << std::endl;
+
+                    processorRef.WriteToMP3(file);
+                // }
+        }
+
+
+        // fileChooser.launchAsync(FileBrowserComponent::saveMode, [this](const FileChooser& chooser)
+        //     {
+        //         auto file = chooser.getResult();
+        //         std::cout << "!!! chooser.getResult()" << std::endl;
+
+        //         if (file.exists())
+        //         {
+        //             std::cout << "!!! WriteToMP3" << std::endl;
+
+        //             processorRef.WriteToMP3(file);
+        //         }
+        //     });
     };
 
     // Make sure that before the constructor has finished, you've set the
@@ -44,5 +81,7 @@ void PluginEditor::resized()
     // layout the positions of your child components here
     auto area = getLocalBounds();
     area.removeFromBottom(50);
-    inspectButton.setBounds (getLocalBounds().withSizeKeepingCentre(100, 50));
+    //inspectButton.setBounds (getLocalBounds().withSizeKeepingCentre(100, 50));
+    saveFileButton.setBounds (getLocalBounds().withSizeKeepingCentre(100, 50));
+    //textField.setBounds (getLocalBounds().withSizeKeepingCentre(100, 50));
 }

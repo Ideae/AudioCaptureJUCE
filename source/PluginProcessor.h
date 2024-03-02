@@ -2,6 +2,8 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+using namespace juce;
+
 #if (MSVC)
 #include "ipps.h"
 #endif
@@ -38,6 +40,16 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    void WriteToMP3(File fileToSaveTo);
+    int floor_div(int a, int b);
+
+    void cacheBufferPosWhenClicked();
+    void setMinutesToRecord(float minutes);
+
 private:
+    std::unique_ptr<AudioBuffer<float>> storedBuffer;
+    int bufferPos = 0, bufferPosWhenClicked = 0;
+    float minutesToRecord = 0.1f;
+    int sampRate = 44100;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };
