@@ -10,6 +10,19 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     //addAndMakeVisible (inspectButton);
     addAndMakeVisible (textField);
     addAndMakeVisible (saveFileButton);
+    addAndMakeVisible(includeTimestampCheckbox);
+    addAndMakeVisible(isMutedCheckbox);
+    addAndMakeVisible(minutesLabel);
+
+    minutesLabel.setText("Minutes:", juce::dontSendNotification);
+    minutesLabel.attachToComponent(&textField, true);
+
+    isMutedCheckbox.onClick = [this] { *processorRef.isMutedParam = isMutedCheckbox.getToggleState(); };
+    isMutedCheckbox.setToggleState(*processorRef.isMutedParam, juce::dontSendNotification);
+
+    includeTimestampCheckbox.onClick = [this] { *processorRef.includeTimestampParam = includeTimestampCheckbox.getToggleState(); };
+    includeTimestampCheckbox.setToggleState(*processorRef.includeTimestampParam, juce::dontSendNotification);
+
 
     textField.setText("3", juce::dontSendNotification);
     textField.setTextToShowWhenEmpty("minutes", juce::Colours::grey);
@@ -27,14 +40,39 @@ PluginEditor::PluginEditor (PluginProcessor& p)
 
     saveFileButton.onClick = [&] {
         processorRef.cacheBufferPosWhenClicked();
-        juce::FileChooser fileChooser ("Save a file", {}, "*.mp3");
+
+        // Create a datestamp for the filename
+        juce::Time time = juce::Time::getCurrentTime();
+        juce::String datestamp = time.formatted("%Y-%m-%d_%H-%M-%S");
+
+        //juce::FileChooser dummyFileChooser ("this shouldnt show", {}, "*.mp3");
+        //dummyFileChooser.getInitialFileOrDirectory();
+
+        //auto initFile = File::getCurrentWorkingDirectory().getChildFile(datestamp + ".mp3");
+
+        //auto filePattern = *processorRef.includeTimestampParam ? "_AudCap_" + datestamp + ".mp3" : "*.mp3";
+        auto filePattern = "*.mp3";
+
+        juce::FileChooser fileChooser ("Save a file", {}, filePattern);
 
         if (fileChooser.browseForFileToSave(true)) {
             auto file = fileChooser.getResult();
 
+
             float minutes = textField.getText().getFloatValue();
             //std::cout << "Writing MP3..." << std::endl;
             processorRef.WriteToMP3(file, minutes);
+
+            if (*processorRef.includeTimestampParam) {
+                auto newFileName = "AudCap_" + datestamp + "__" + file.getFileName();
+                if (renameFile(file, newFileName)) {
+                    cout << "Renamed file to " << newFileName << endl;
+                    file = file.getSiblingFile(newFileName);
+                }
+                else {
+                    cout << "Failed to rename file to " << newFileName << endl;
+                }
+            }
         }
     };
 
@@ -47,12 +85,17 @@ PluginEditor::~PluginEditor()
 {
 }
 
+bool PluginEditor::renameFile (const juce::File& f, const juce::String& newName)
+{
+    return f.moveFileTo (f.getSiblingFile (newName));
+}
+
 void PluginEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
 
-    auto area = getLocalBounds();
+    //auto area = getLocalBounds();
     g.setColour (juce::Colours::white);
     g.setFont (16.0f);
     // auto helloWorld = juce::String ("Hello from ") + PRODUCT_NAME_WITHOUT_VERSION + " v" VERSION + " running in " + CMAKE_BUILD_TYPE;
@@ -65,8 +108,22 @@ void PluginEditor::resized()
     textField.setInputRestrictions(4, "0123456789.");
     // layout the positions of your child components here
     auto area = getLocalBounds();
-    area.removeFromBottom(50);
-    //inspectButton.setBounds (getLocalBounds().withSizeKeepingCentre(100, 50));
-    textField.setBounds (getLocalBounds().removeFromTop(getLocalBounds().getHeight() / 2).withSizeKeepingCentre(60, 30));
-    saveFileButton.setBounds (getLocalBounds().removeFromBottom(getLocalBounds().getHeight() / 2).withSizeKeepingCentre(100, 50));
+    int elementHeight = 30;
+    int numberOfElements = 4;
+    int padding = (area.getHeight() - (numberOfElements * elementHeight)) / (numberOfElements + 1);
+    
+    // auto bottomArea = area.removeFromBottom(area.getHeight() / 2);
+    // auto topArea = getLocalBounds().removeFromTop(getLocalBounds().getHeight() / 2);
+    // textField.setBounds (topArea.removeFromTop(topArea.getHeight() / 2).withSizeKeepingCentre(60, 30));
+    // saveFileButton.setBounds(topArea.removeFromBottom(topArea.getHeight() / 2).withSizeKeepingCentre(100, 30));
+    // isMutedCheckbox.setBounds (bottomArea.withSizeKeepingCentre(100, 50));
+
+    area.removeFromTop(padding);
+    textField.setBounds (area.removeFromTop(elementHeight).withSizeKeepingCentre(60, 30));
+    area.removeFromTop(padding);
+    saveFileButton.setBounds(area.removeFromTop(elementHeight).withSizeKeepingCentre(100, 30));
+    area.removeFromTop(padding);
+    includeTimestampCheckbox.setBounds (area.removeFromTop(elementHeight).withSizeKeepingCentre(160, 30));
+    area.removeFromTop(padding);
+    isMutedCheckbox.setBounds (area.removeFromTop(elementHeight).withSizeKeepingCentre(100, 30));
 }

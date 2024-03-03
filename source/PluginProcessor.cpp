@@ -173,6 +173,9 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 bufferPosTemp = 0;
                 hasWrappedAroundBuffer = true;
             }
+            if (*isMutedParam) {
+                channelData[i] = 0;
+            }
         }
         if (channel == totalNumInputChannels - 1) {
             bufferPos = bufferPosTemp;
@@ -217,8 +220,8 @@ void PluginProcessor::WriteToMP3(File fileToSaveTo, float minutes) {
                 // WavMetadata.set("id3artist", String());
                 // WavMetadata.set("id3album", String());
 
-                minutesToRecord = minutes;
-                int samplesToWrite = sampRate * (int)(minutesToRecord * 60.0f);
+                *minutesToCaptureParam = minutes;
+                int samplesToWrite = sampRate * (int)(*minutesToCaptureParam * 60.0f);
 
                 int finalBufferPos = bufferPosWhenClicked;
                 int initialBufferPos = negativeAwareModulo(finalBufferPos - samplesToWrite, storedBuffer->getNumSamples());
