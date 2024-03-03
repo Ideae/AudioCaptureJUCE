@@ -40,7 +40,7 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    void WriteToMP3(File fileToSaveTo);
+    void WriteToMP3(File fileToSaveTo, float minutes);
     int floor_div(int a, int b);
 
     void cacheBufferPosWhenClicked();
@@ -49,7 +49,10 @@ public:
 private:
     std::unique_ptr<AudioBuffer<float>> storedBuffer;
     int bufferPos = 0, bufferPosWhenClicked = 0;
-    float minutesToRecord = 0.1f;
-    int sampRate = 44100;
+    float minutesToRecord = 0.1f;  // this gets overwritten by the textField in the editor
+    int sampRate = 44100; // this gets overwritten by the prepareToPlay function
+    int maxBufferLengthInMinutes = 31; // the higher this is, the more memory it will take up
+    // 44100 * 60 * 31 = 82,008,000 which is 82MB
+    bool hasWrappedAroundBuffer = false; // if the app has been running long enough that the maxBufferLengthInMinutes is reached, this will be set to true
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };

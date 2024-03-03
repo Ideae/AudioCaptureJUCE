@@ -104,7 +104,7 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     sampRate = (int)sampleRate;
     // Rest of the code...
     //storedBuffer(AudioBuffer<float>(2, 48000 * (60 * 2))) // start at 2 minutes for now
-    int maxBufferLengthInMinutes = 3;
+    
     storedBuffer.reset(new AudioBuffer<float>(2, sampRate * (60 * maxBufferLengthInMinutes)));
 }
 
@@ -157,17 +157,9 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer (channel);
-        // juce::ignoreUnused (channelData);
-        // ..do something to the data...
         auto numSamples = buffer.getNumSamples();
         auto numSamplesStoredBuffer = storedBuffer->getNumSamples();
         //storedBuffer.copyFrom(channel, bufferPos, buffer, channel, 0, numSamples);
@@ -179,6 +171,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             if (bufferPosTemp >= numSamplesStoredBuffer)
             {
                 bufferPosTemp = 0;
+                hasWrappedAroundBuffer = true;
             }
         }
         if (channel == totalNumInputChannels - 1) {
@@ -187,34 +180,11 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 }
 
-// int PluginProcessor::floor_div(int a, int b)
-// {
-//     //assert(b != 0);
-//     if (b == 0) {
-//         return 0;
-//     }
-//     div_t r = div(a, b);
-//     if (r.rem != 0 && ((a < 0) ^ (b < 0)))
-//         r.quot--;
-//     return r.quot;
-// }
-
-int PluginProcessor::floor_div(int a, int b) {
-    int d = a / b;
-    if (a < 0 != b < 0) {  /* negative output (check inputs since 'd' isn't floored) */
-        if (d * a != b) {  /* avoid modulo, use multiply instead */
-            d -= 1;        /* floor */
-        }
-    }
-    return d;
-}
-
-
 void PluginProcessor::cacheBufferPosWhenClicked() {
     bufferPosWhenClicked = bufferPos;
 }
 
-void PluginProcessor::WriteToMP3(File fileToSaveTo) {
+void PluginProcessor::WriteToMP3(File fileToSaveTo, float minutes) {
     auto TEMP = File::getSpecialLocation(File::SpecialLocationType::tempDirectory).getFullPathName() + File::getSeparatorString();
         // auto LAME_EXE = File(TEMP + "lame.exe");
         auto LAME_EXE = File(TEMP + "lame"); //todo: it should instead use a named resource instead with the lame exec in the binary data, and in the current directory, I think.
@@ -247,10 +217,21 @@ void PluginProcessor::WriteToMP3(File fileToSaveTo) {
                 // WavMetadata.set("id3artist", String());
                 // WavMetadata.set("id3album", String());
 
+                minutesToRecord = minutes;
                 int samplesToWrite = sampRate * (int)(minutesToRecord * 60.0f);
 
                 int finalBufferPos = bufferPosWhenClicked;
                 int initialBufferPos = negativeAwareModulo(finalBufferPos - samplesToWrite, storedBuffer->getNumSamples());
+
+                if (!hasWrappedAroundBuffer) {
+                    initialBufferPos = finalBufferPos - samplesToWrite;
+                    if (initialBufferPos < 0) {
+                        initialBufferPos = 0;
+                        samplesToWrite = finalBufferPos;
+                    }
+                }
+
+                cout << "!!! initialBufferPos: " << initialBufferPos << endl;
 
                 fileToSaveTo.deleteFile();
 
@@ -264,7 +245,19 @@ void PluginProcessor::WriteToMP3(File fileToSaveTo) {
                 // writer.reset(format->createWriterFor(new FileOutputStream(fileToSaveTo), sampleRate, 2, 16, WavMetadata, 23)); // CBR 320 Kbps
                 writer.reset(format->createWriterFor(new FileOutputStream(fileToSaveTo), sampRate, 2, 16, {}, 23)); // CBR 320 Kbps
                 if (writer != nullptr) {
-                    writer->writeFromAudioSampleBuffer(*storedBuffer, initialBufferPos, samplesToWrite);
+                    std::unique_ptr<AudioBuffer<float>> storedBufferSegment;
+                    storedBufferSegment.reset(new AudioBuffer<float>(2, samplesToWrite));
+                    int storedBufferLength = storedBuffer->getNumSamples();
+                    for (int channel = 0; channel < storedBuffer->getNumChannels(); ++channel) {
+                        auto* channelData = storedBuffer->getReadPointer(channel);
+                        int bufferPosTemp = initialBufferPos;
+                        for (int i = 0; i < samplesToWrite; i++) {
+                            int index = (bufferPosTemp + i) % storedBufferLength;
+                            storedBufferSegment->setSample(channel, i, channelData[index]);
+                        }
+                    }
+                    //writer->writeFromAudioSampleBuffer(*storedBuffer, initialBufferPos, samplesToWrite);
+                    writer->writeFromAudioSampleBuffer(*storedBufferSegment, 0, samplesToWrite);
                     cout << "Done writing mp3 file." << endl;
                 }
                 else {
