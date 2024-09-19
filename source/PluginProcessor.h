@@ -56,8 +56,8 @@ private:
     int bufferPos = 0, bufferPosWhenClicked = 0;
     //float minutesToRecord = 0.1f;  // this gets overwritten by the textField in the editor
     int sampRate = 44100; // this gets overwritten by the prepareToPlay function
-    int maxBufferLengthInMinutes = 31; // the higher this is, the more memory it will take up
-    // 44100 * 60 * 31 = 82,008,000 which is 82MB
+    int maxBufferLengthInMinutes = 121; // the higher this is, the more memory it will take up
+    // 44100 * 60 * 121 = 318,262,400 which is about 318MB
     bool hasWrappedAroundBuffer = false; // if the app has been running long enough that the maxBufferLengthInMinutes is reached, this will be set to true
     // Add a float parameter called minutesToCaptureParam
     unique_ptr<AudioParameterFloat> minutesToCaptureParam = make_unique<AudioParameterFloat>("minutesToCapture", "Minutes to Capture", 0.1f, 30.0f, 0.1f);
